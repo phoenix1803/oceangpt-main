@@ -145,8 +145,7 @@ if api_healthy:
         default_paths = [
             str(data_dir),  # Absolute path to data directory
             "./data",
-            "./data/data/csv_cleaned",  # Relative path
-            "data",         # Simple relative path
+            str(backend_dir / "data/data/csv_cleaned"),  # Relative path
             str(backend_dir / "data")  # Full backend data path
         ]
         
