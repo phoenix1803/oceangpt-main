@@ -562,7 +562,7 @@ st.markdown(
     """
     <div style='text-align: center; color: #666;'>
         🌊 Argo Float Explorer | Real-time Oceanographic Data Analysis<br>
-        Data simulated for demonstration purposes | Built with Streamlit
+        Built with Streamlit
     </div>
     """, 
     unsafe_allow_html=True
