@@ -367,12 +367,22 @@ if page == "🏠 Dashboard":
     with col1:
         # Temperature distribution
         st.write("🌡️ **Temperature Distribution**")
-        st.histogram_chart(filtered_df['temperature'], bins=30)
+        temp_hist = np.histogram(filtered_df['temperature'], bins=30)
+        temp_df = pd.DataFrame({
+            'Temperature (°C)': temp_hist[1][:-1],
+            'Count': temp_hist[0]
+        })
+        st.bar_chart(temp_df.set_index('Temperature (°C)'))
     
     with col2:
         # Salinity distribution
         st.write("🧂 **Salinity Distribution**")
-        st.histogram_chart(filtered_df['salinity'], bins=30)
+        sal_hist = np.histogram(filtered_df['salinity'], bins=30)
+        sal_df = pd.DataFrame({
+            'Salinity (PSU)': sal_hist[1][:-1],
+            'Count': sal_hist[0]
+        })
+        st.bar_chart(sal_df.set_index('Salinity (PSU)'))
 
 elif page == "🗺️ Float Trajectories":
     st.title("🗺️ Argo Float Trajectories")
