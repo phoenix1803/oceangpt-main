@@ -168,6 +168,27 @@ if api_healthy:
     
     st.info("💡 Select the data directory path that works for your environment")
     
+    # Quick sample data option
+    st.subheader("🧪 Or Create Sample Data")
+    col_sample1, col_sample2 = st.columns([3, 1])
+    
+    with col_sample1:
+        st.write("Create sample oceanographic data directly in the database for testing")
+    
+    with col_sample2:
+        if st.button("🧪 Create Sample Data", type="secondary"):
+            with st.spinner("Creating sample data..."):
+                try:
+                    r = requests.post(f"{API_BASE}/ingest/sample-data", timeout=10)
+                    if r.status_code == 200:
+                        result = r.json()
+                        st.success(f"✅ {result.get('message', 'Sample data created!')}")
+                        st.rerun()
+                    else:
+                        st.error(f"❌ Failed to create sample data: {r.text}")
+                except Exception as e:
+                    st.error(f"❌ Error creating sample data: {str(e)}")
+    
     # Alternative: File upload
     st.subheader("📤 Or Upload CSV Files")
     uploaded_files = st.file_uploader(

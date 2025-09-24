@@ -135,14 +135,107 @@ def debug_paths():
     return info
 
 
-@router.post("/csv")
-def ingest_csv(folder: str):
+@router.post("/sample-data")
+def create_sample_data():
+    """Create sample data directly in the database for testing"""
     db = SessionLocal()
     try:
+        # Ensure tables exist
+        Base.metadata.create_all(bind=engine, checkfirst=True)
+        
+        # Create sample profiles
+        sample_data = [
+            {"float_id": "test_float_1", "n_prof": 1, "lat": 45.5, "lon": -123.2, "measurements": [
+                {"n_levels": 10, "pres": 10.0, "temp": 15.5, "psal": 35.0},
+                {"n_levels": 10, "pres": 20.0, "temp": 14.8, "psal": 35.1},
+                {"n_levels": 10, "pres": 30.0, "temp": 14.2, "psal": 35.2}
+            ]},
+            {"float_id": "test_float_2", "n_prof": 2, "lat": 46.0, "lon": -124.0, "measurements": [
+                {"n_levels": 8, "pres": 10.0, "temp": 16.0, "psal": 34.8},
+                {"n_levels": 8, "pres": 20.0, "temp": 15.3, "psal": 34.9},
+                {"n_levels": 8, "pres": 30.0, "temp": 14.7, "psal": 35.0}
+            ]},
+            {"float_id": "test_float_3", "n_prof": 3, "lat": 47.2, "lon": -125.5, "measurements": [
+                {"n_levels": 12, "pres": 5.0, "temp": 17.2, "psal": 34.5},
+                {"n_levels": 12, "pres": 15.0, "temp": 16.8, "psal": 34.7},
+                {"n_levels": 12, "pres": 25.0, "temp": 16.1, "psal": 34.9}
+            ]}
+        ]
+        
+        profiles_created = 0
+        measurements_created = 0
+        
+        for data in sample_data:
+            profile = models.Profile(
+                float_id=data["float_id"],
+                n_prof=data["n_prof"],
+                latitude=data["lat"],
+                longitude=data["lon"]
+            )
+            db.add(profile)
+            db.flush()  # Get the profile ID
+            profiles_created += 1
+            
+            for meas_data in data["measurements"]:
+                measurement = models.Measurement(
+                    profile_id=profile.id,
+                    n_levels=meas_data["n_levels"],
+                    pres=meas_data["pres"],
+                    temp=meas_data["temp"],
+                    psal=meas_data["psal"]
+                )
+                db.add(measurement)
+                measurements_created += 1
+        
+        db.commit()
+        
+        return {
+            "status": "ok",
+            "message": f"Created {profiles_created} sample profiles with {measurements_created} measurements"
+        }
+        
+    except Exception as e:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        
+        error_msg = str(e)
+        if "readonly database" in error_msg.lower():
+            error_msg = "Database is read-only. Cannot create sample data on this platform."
+        
+        raise HTTPException(status_code=400, detail=error_msg)
+    finally:
+        try:
+            db.close()
+        except Exception:
+            pass
+
+
+@router.post("/csv")
+def ingest_csv(folder: str):
+    # Create a fresh session
+    db = SessionLocal()
+    try:
+        # Ensure tables exist
+        Base.metadata.create_all(bind=engine, checkfirst=True)
+        
         processed_files = ingest_csv_folder(folder, db)
         return {"status": "ok", "processed_files": processed_files, "message": f"Successfully processed {processed_files} CSV files"}
     except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        try:
+            db.rollback()
+        except Exception:
+            pass  # Ignore rollback errors
+        
+        # Create a more informative error message
+        error_msg = str(e)
+        if "readonly database" in error_msg.lower():
+            error_msg = "Database is read-only. This may occur on cloud platforms. Data will be stored in memory for this session."
+        
+        raise HTTPException(status_code=400, detail=error_msg)
     finally:
-        db.close()
+        try:
+            db.close()
+        except Exception:
+            pass  # Ignore close errors
