@@ -1,9 +1,6 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.express as px
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import random
 import time
 from datetime import datetime, timedelta
@@ -148,7 +145,7 @@ Argo is a global network of autonomous profiling floats that measure temperature
 - 📡 Real-time data transmission
 - 🌊 Critical for weather/climate prediction
 - 🔬 Supports oceanographic research
-- 📈 Provides data for climate models
+- � Prolvides data for climate models
 
 **This Demo:**
 Our dataset simulates realistic Argo measurements, showcasing the type of valuable oceanographic data these remarkable instruments collect!
@@ -369,53 +366,23 @@ if page == "🏠 Dashboard":
     
     with col1:
         # Temperature distribution
-        fig_temp = px.histogram(
-            filtered_df, 
-            x='temperature', 
-            nbins=30,
-            title="🌡️ Temperature Distribution",
-            color_discrete_sequence=['#FF6B6B']
-        )
-        fig_temp.update_layout(height=300)
-        st.plotly_chart(fig_temp, use_container_width=True)
+        st.write("🌡️ **Temperature Distribution**")
+        st.histogram_chart(filtered_df['temperature'], bins=30)
     
     with col2:
         # Salinity distribution
-        fig_sal = px.histogram(
-            filtered_df, 
-            x='salinity', 
-            nbins=30,
-            title="🧂 Salinity Distribution",
-            color_discrete_sequence=['#4ECDC4']
-        )
-        fig_sal.update_layout(height=300)
-        st.plotly_chart(fig_sal, use_container_width=True)
+        st.write("🧂 **Salinity Distribution**")
+        st.histogram_chart(filtered_df['salinity'], bins=30)
 
 elif page == "🗺️ Float Trajectories":
     st.title("🗺️ Argo Float Trajectories")
     st.markdown("### Interactive map showing float positions and drift patterns")
     
-    # Create trajectory map
-    fig_map = px.scatter_mapbox(
-        filtered_df.groupby(['float_id', 'latitude', 'longitude']).first().reset_index(),
-        lat='latitude',
-        lon='longitude',
-        color='region',
-        hover_data=['float_id', 'temperature', 'salinity'],
-        mapbox_style='open-street-map',
-        title="🌍 Global Argo Float Positions",
-        height=600,
-        zoom=1
-    )
+    # Create trajectory map using Streamlit's built-in map
+    map_data = filtered_df.groupby(['float_id', 'latitude', 'longitude']).first().reset_index()
     
-    fig_map.update_layout(
-        mapbox=dict(
-            center=dict(lat=0, lon=0),
-            zoom=1
-        )
-    )
-    
-    st.plotly_chart(fig_map, use_container_width=True)
+    st.subheader("🌍 Global Argo Float Positions")
+    st.map(map_data[['latitude', 'longitude']], size=20, color='#FF0000')
     
     # Float trajectory details
     st.subheader("🛤️ Individual Float Trajectories")
@@ -423,21 +390,12 @@ elif page == "🗺️ Float Trajectories":
     if selected_float != "All Floats":
         float_data = filtered_df[filtered_df['float_id'] == selected_float]
         
-        # Create trajectory line plot
+        # Create trajectory data
         trajectory_data = float_data.groupby(['n_prof', 'latitude', 'longitude', 'date']).first().reset_index()
         trajectory_data = trajectory_data.sort_values('date')
         
-        fig_traj = px.line_mapbox(
-            trajectory_data,
-            lat='latitude',
-            lon='longitude',
-            hover_data=['n_prof', 'date'],
-            mapbox_style='open-street-map',
-            title=f"🛤️ Trajectory for {selected_float}",
-            height=500
-        )
-        
-        st.plotly_chart(fig_traj, use_container_width=True)
+        st.write(f"**Trajectory for {selected_float}**")
+        st.map(trajectory_data[['latitude', 'longitude']], size=10, color='#0000FF')
         
         # Trajectory statistics
         col1, col2, col3 = st.columns(3)
@@ -452,6 +410,8 @@ elif page == "🗺️ Float Trajectories":
         with col3:
             days = (trajectory_data['date'].iloc[-1] - trajectory_data['date'].iloc[0]).days
             st.metric("⏱️ Mission Duration", f"{days} days")
+    else:
+        st.info("Select a specific float to view its trajectory")
 
 elif page == "📊 Data Analysis":
     st.title("📊 Oceanographic Data Analysis")
@@ -460,41 +420,31 @@ elif page == "📊 Data Analysis":
     # Temperature-Salinity profiles
     st.subheader("🌡️ Temperature vs Depth Profiles")
     
-    # Create T-S diagram
-    profile_data = filtered_df.groupby(['float_id', 'pressure']).agg({
+    # Create depth profile data
+    profile_data = filtered_df.groupby(['region', 'pressure']).agg({
         'temperature': 'mean',
-        'salinity': 'mean',
-        'region': 'first'
+        'salinity': 'mean'
     }).reset_index()
     
-    fig_temp_depth = px.line(
-        profile_data,
-        x='temperature',
-        y='pressure',
-        color='region',
-        line_group='float_id',
-        title="🌡️ Temperature Profiles by Region",
-        labels={'pressure': 'Depth (m)', 'temperature': 'Temperature (°C)'}
-    )
-    fig_temp_depth.update_yaxis(autorange='reversed')
-    fig_temp_depth.update_layout(height=500)
-    st.plotly_chart(fig_temp_depth, use_container_width=True)
+    # Temperature profiles by region
+    for region in profile_data['region'].unique():
+        region_data = profile_data[profile_data['region'] == region]
+        chart_data = pd.DataFrame({
+            'Depth (m)': region_data['pressure'],
+            f'{region} Temperature (°C)': region_data['temperature']
+        }).set_index('Depth (m)')
+        st.line_chart(chart_data)
     
     # Salinity profiles
     st.subheader("🧂 Salinity vs Depth Profiles")
     
-    fig_sal_depth = px.line(
-        profile_data,
-        x='salinity',
-        y='pressure',
-        color='region',
-        line_group='float_id',
-        title="🧂 Salinity Profiles by Region",
-        labels={'pressure': 'Depth (m)', 'salinity': 'Salinity (PSU)'}
-    )
-    fig_sal_depth.update_yaxis(autorange='reversed')
-    fig_sal_depth.update_layout(height=500)
-    st.plotly_chart(fig_sal_depth, use_container_width=True)
+    for region in profile_data['region'].unique():
+        region_data = profile_data[profile_data['region'] == region]
+        chart_data = pd.DataFrame({
+            'Depth (m)': region_data['pressure'],
+            f'{region} Salinity (PSU)': region_data['salinity']
+        }).set_index('Depth (m)')
+        st.line_chart(chart_data)
     
     # Regional comparison
     st.subheader("🌍 Regional Comparison")
@@ -502,28 +452,17 @@ elif page == "📊 Data Analysis":
     col1, col2 = st.columns(2)
     
     with col1:
-        # Temperature by region
-        fig_temp_region = px.box(
-            filtered_df[filtered_df['pressure'] <= 100],  # Surface waters
-            x='region',
-            y='temperature',
-            title="🌡️ Surface Temperature by Region (0-100m)",
-            color='region'
-        )
-        fig_temp_region.update_xaxis(tickangle=45)
-        st.plotly_chart(fig_temp_region, use_container_width=True)
+        # Temperature by region (surface waters)
+        st.write("🌡️ **Surface Temperature by Region (0-100m)**")
+        surface_data = filtered_df[filtered_df['pressure'] <= 100]
+        temp_by_region = surface_data.groupby('region')['temperature'].mean().sort_values(ascending=False)
+        st.bar_chart(temp_by_region)
     
     with col2:
         # Salinity by region
-        fig_sal_region = px.box(
-            filtered_df[filtered_df['pressure'] <= 100],
-            x='region',
-            y='salinity',
-            title="🧂 Surface Salinity by Region (0-100m)",
-            color='region'
-        )
-        fig_sal_region.update_xaxis(tickangle=45)
-        st.plotly_chart(fig_sal_region, use_container_width=True)
+        st.write("🧂 **Surface Salinity by Region (0-100m)**")
+        sal_by_region = surface_data.groupby('region')['salinity'].mean().sort_values(ascending=False)
+        st.bar_chart(sal_by_region)
     
     # Time series analysis
     if selected_float != "All Floats":
@@ -535,26 +474,21 @@ elif page == "📊 Data Analysis":
             'salinity': 'mean'
         }).reset_index()
         
-        fig_ts = make_subplots(
-            rows=2, cols=1,
-            subplot_titles=('🌡️ Surface Temperature Over Time', '🧂 Surface Salinity Over Time'),
-            vertical_spacing=0.1
-        )
+        st.write(f"**{selected_float} Surface Conditions Over Time**")
         
-        fig_ts.add_trace(
-            go.Scatter(x=surface_data['date'], y=surface_data['temperature'], 
-                      name='Temperature', line=dict(color='red')),
-            row=1, col=1
-        )
+        # Temperature time series
+        temp_chart = pd.DataFrame({
+            'Date': surface_data['date'],
+            'Temperature (°C)': surface_data['temperature']
+        }).set_index('Date')
+        st.line_chart(temp_chart)
         
-        fig_ts.add_trace(
-            go.Scatter(x=surface_data['date'], y=surface_data['salinity'], 
-                      name='Salinity', line=dict(color='blue')),
-            row=2, col=1
-        )
-        
-        fig_ts.update_layout(height=500, title_text=f"📈 {selected_float} Time Series")
-        st.plotly_chart(fig_ts, use_container_width=True)
+        # Salinity time series
+        sal_chart = pd.DataFrame({
+            'Date': surface_data['date'],
+            'Salinity (PSU)': surface_data['salinity']
+        }).set_index('Date')
+        st.line_chart(sal_chart)
 
 elif page == "💬 Chat Assistant":
     st.title("💬 Argo Data Assistant")
@@ -618,7 +552,7 @@ st.markdown(
     """
     <div style='text-align: center; color: #666;'>
         🌊 Argo Float Explorer | Real-time Oceanographic Data Analysis<br>
-        Data simulated for demonstration purposes | Built with Streamlit & Plotly
+        Data simulated for demonstration purposes | Built with Streamlit
     </div>
     """, 
     unsafe_allow_html=True
