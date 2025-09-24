@@ -85,16 +85,30 @@ if api_healthy:
     
     with col2:
         if st.button("🔄 Reset Database", type="secondary"):
-            try:
-                # Delete all profiles (cascades to measurements)
-                r = requests.delete(f"{API_BASE}/profiles/reset", timeout=10)
-                if r.status_code == 200:
-                    st.success("✅ Database reset successfully!")
-                    st.rerun()
-                else:
-                    st.error("❌ Failed to reset database")
-            except Exception as e:
-                st.error(f"❌ Error resetting database: {str(e)}")
+            with st.spinner("Resetting database..."):
+                try:
+                    # Try the delete method first
+                    r = requests.delete(f"{API_BASE}/profiles/reset", timeout=10)
+                    if r.status_code == 200:
+                        result = r.json()
+                        st.success(f"✅ {result.get('message', 'Database reset successfully!')}")
+                        time.sleep(1)  # Brief pause before refresh
+                        st.rerun()
+                    else:
+                        # Try alternative reset method
+                        st.warning("Trying alternative reset method...")
+                        r2 = requests.post(f"{API_BASE}/profiles/reset-tables", timeout=10)
+                        if r2.status_code == 200:
+                            result = r2.json()
+                            st.success(f"✅ {result.get('message', 'Database reset successfully!')}")
+                            time.sleep(1)
+                            st.rerun()
+                        else:
+                            st.error(f"❌ Both reset methods failed. Error: {r2.text}")
+                except requests.exceptions.RequestException as e:
+                    st.error(f"❌ Connection error: {str(e)}")
+                except Exception as e:
+                    st.error(f"❌ Error resetting database: {str(e)}")
     
     with col3:
         if st.button("🔍 Refresh Data"):

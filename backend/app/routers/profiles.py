@@ -41,11 +41,49 @@ def trajectories(db: Session = Depends(get_db)):
 def reset_database(db: Session = Depends(get_db)):
     """Reset the database by deleting all profiles and measurements"""
     try:
-        # Delete all profiles (measurements will be deleted due to cascade)
-        deleted_count = db.query(models.Profile).count()
-        db.query(models.Profile).delete()
+        # Count existing data
+        profile_count = db.query(models.Profile).count()
+        measurement_count = db.query(models.Measurement).count()
+        
+        # Delete all profiles (cascade will handle measurements)
+        db.query(models.Profile).delete(synchronize_session=False)
+        
+        # Commit the transaction
         db.commit()
-        return {"status": "success", "message": f"Deleted {deleted_count} profiles and associated measurements"}
+        
+        return {
+            "status": "success", 
+            "message": f"Successfully deleted {profile_count} profiles and {measurement_count} measurements"
+        }
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error resetting database: {str(e)}")
+        error_msg = str(e)
+        print(f"Reset database error: {error_msg}")  # For debugging
+        raise HTTPException(status_code=500, detail=f"Error resetting database: {error_msg}")
+
+
+@router.post("/reset-tables")
+def reset_tables(db: Session = Depends(get_db)):
+    """Alternative reset method - recreate database tables"""
+    try:
+        from ..db import Base, engine
+        
+        # Count existing data
+        profile_count = db.query(models.Profile).count()
+        measurement_count = db.query(models.Measurement).count()
+        
+        # Close the current session
+        db.close()
+        
+        # Drop and recreate tables
+        Base.metadata.drop_all(bind=engine)
+        Base.metadata.create_all(bind=engine)
+        
+        return {
+            "status": "success", 
+            "message": f"Successfully reset database (removed {profile_count} profiles and {measurement_count} measurements)"
+        }
+    except Exception as e:
+        error_msg = str(e)
+        print(f"Reset tables error: {error_msg}")  # For debugging
+        raise HTTPException(status_code=500, detail=f"Error resetting tables: {error_msg}")
